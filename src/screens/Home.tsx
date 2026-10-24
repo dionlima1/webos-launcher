@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useState} from 'preact/hooks';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'preact/hooks';
 import {Clock} from '../components/Clock';
 import {Glyph, type GlyphName} from '../components/Glyph';
 import {Row} from '../components/Row';
@@ -174,6 +174,20 @@ export function Home ({ambient, tiles, buttons, active, visible, weather, photos
 	}, [zone, button, buttons, tiles, focused, line, col, lines.length, onActivate, fullscreen, mode, view, panelOpen, panelRow, album, albums, videoState]);
 
 	useKeys(handleKey, active);
+
+	// The Home button (through the helper) relaunches Início even while it's on screen.
+	// In full screen that works like Back, so Home always brings back the apps.
+	const fullscreenRef = useRef(fullscreen);
+	fullscreenRef.current = fullscreen;
+	useEffect(() => {
+		const onRelaunch = () => {
+			if (!fullscreenRef.current) return;
+			updateWindow({fullscreen: false});
+			setZone('window');
+		};
+		document.addEventListener('webOSRelaunch', onRelaunch);
+		return () => document.removeEventListener('webOSRelaunch', onRelaunch);
+	}, []);
 
 	const room = 2 * LAYOUT.focusRoom;
 	return (

@@ -140,17 +140,28 @@ export function App () {
 	// screen is still and LG's screensaver gets its turn at the next request.
 	useTimeout(ambient, TIMING.ambientMaxMs, () => endAmbient(true));
 
-	// Any key: back to where things were (the key itself only wakes the screen).
+	// Any key: back to where things were (the key itself only wakes the screen). The Home
+	// button never reaches the page as a key (the helper takes it and relaunches Início),
+	// so a relaunch counts as one.
 	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
+		const wake = (): boolean => {
 			ambientSpent.current = false;
-			if (!ambientSince.current) return;
+			if (!ambientSince.current) return false;
+			endAmbient(false);
+			return true;
+		};
+		const onKey = (e: KeyboardEvent) => {
+			if (!wake()) return;
 			e.stopImmediatePropagation();
 			e.preventDefault();
-			endAmbient(false);
 		};
+		const onRelaunch = () => { wake(); };
 		window.addEventListener('keydown', onKey, true);
-		return () => window.removeEventListener('keydown', onKey, true);
+		document.addEventListener('webOSRelaunch', onRelaunch);
+		return () => {
+			window.removeEventListener('keydown', onKey, true);
+			document.removeEventListener('webOSRelaunch', onRelaunch);
+		};
 	}, []);
 	useEffect(() => { if (!visible && ambientSince.current) endAmbient(false); }, [visible]);
 
