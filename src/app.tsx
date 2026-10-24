@@ -6,7 +6,7 @@ import {Toast, type ToastMessage} from './components/Toast';
 import type {TileModel} from './components/Tile';
 import {cachedPhotos, describeAlbumRefs, loadAlbumRefs, loadPhotos, saveAlbumRefs, type AlbumRef, type Photo} from './lib/album';
 import {connectAlbumManager, pushAlbumsToManager} from './lib/albumManager';
-import {listApps, type AppEntry} from './lib/apps';
+import {cachedTvApps, hasTvPermission, listApps, type AppEntry} from './lib/apps';
 import {listInputs, MOCK_INPUTS, type InputSource} from './lib/inputs';
 import {launchApp, launchLgHome} from './lib/launch';
 import {isWebOS} from './lib/luna';
@@ -24,7 +24,7 @@ type Screen = 'home' | 'settings';
 
 const ROW = {apps: 'apps', sources: 'sources'} as const;
 const MISC = {lgHome: 'lg-home', settings: 'settings'} as const;
-const OPTION = {useHomebrew: 'use-homebrew'} as const;
+const OPTION = {useTvApps: 'use-tv-apps'} as const;
 
 const BUTTONS: HomeButton[] = [
 	{key: MISC.lgHome, label: 'LG Home', glyph: 'house'},
@@ -46,26 +46,37 @@ export function App () {
 	const toastTimer = useRef(0);
 	const visible = usePageVisible();
 
-	const showToast = useCallback((text: string, kind: ToastMessage['kind'] = 'info') => {
+	const showToast = useCallback((text: string, kind: ToastMessage['kind'] = 'info', ms: number = TIMING.toastMs) => {
 		window.clearTimeout(toastTimer.current);
 		setToast({text, kind});
-		toastTimer.current = window.setTimeout(() => setToast(null), TIMING.toastMs);
+		toastTimer.current = window.setTimeout(() => setToast(null), ms);
 	}, []);
 
 	// Start in remote (5-way) mode: hide the Magic Remote pointer whenever we come to the
 	// front. Shaking the remote still brings it back.
 	useEffect(() => hidePointerOnForeground(), []);
 
-	// Load apps at start and whenever the Homebrew option changes; refresh inputs whenever
-	// the app comes back to the foreground (labels or connections may have changed).
+	// Load apps at start and whenever the TV-list option changes. The TV's own list (with
+	// LG's icons) needs its permission once: without it the TV shows a prompt, so we say
+	// what to do; if it's refused we don't ask again until the option is switched back on.
 	useEffect(() => {
-		listApps(config.useHomebrew)
+		const useTv = config.useTvApps && isWebOS();
+		const cached = useTv ? cachedTvApps() : null;
+		if (cached) setApps(cached);
+		const asking = useTv && !hasTvPermission();
+		if (asking) showToast('Para mostrar os ícones da LG, aceite o pedido que apareceu na TV.', 'info', 60000);
+		listApps(config.useHomebrew, useTv)
 			.then(({apps: list, source}) => {
 				setApps(list);
-				if (config.useHomebrew && source !== 'homebrew') showToast('Homebrew Channel not available, using the built-in app list', 'error');
+				if (asking && source !== 'tv') {
+					updateConfig({...config, useTvApps: false});
+					showToast('Sem permissão da TV: usando os ícones do Início. Dá para tentar de novo em Ajustes.', 'error', 6000);
+				} else if (asking) {
+					showToast('Pronto: ícones e apps da TV.', 'info', 3000);
+				}
 			})
-			.catch(() => showToast('Could not read the app list', 'error'));
-	}, [config.useHomebrew, showToast]);
+			.catch(() => showToast('Não deu para ler a lista de apps.', 'error'));
+	}, [config.useHomebrew, config.useTvApps, showToast]);
 
 	// Inputs, weather and the photo album refresh only while we're on screen, and are
 	// retried soon after a failure (on the TV a call made at launch can fail).
@@ -176,12 +187,12 @@ export function App () {
 
 	const options: OptionItem[] = useMemo(() => [
 		{
-			id: OPTION.useHomebrew,
-			label: 'Live app list via Homebrew Channel',
-			description: 'Rooted TVs only. Lists every installed app with its real icon, using the Homebrew Channel, which runs commands as root. When off, the built-in app catalogue is used.',
-			value: config.useHomebrew
+			id: OPTION.useTvApps,
+			label: 'Apps e ícones da TV',
+			description: 'Usa a lista de apps instalados e os ícones da própria LG. Na primeira vez a TV pede permissão na tela. Desligado, usa o catálogo do Início.',
+			value: config.useTvApps
 		}
-	], [config.useHomebrew]);
+	], [config.useTvApps]);
 
 	// ----- actions -----
 	const onActivate = useCallback((item: TileModel | HomeButton) => {
@@ -201,7 +212,7 @@ export function App () {
 	}, [config, inputs]);
 
 	const onOption = useCallback((optionId: string) => {
-		if (optionId === OPTION.useHomebrew) updateConfig({...config, useHomebrew: !config.useHomebrew});
+		if (optionId === OPTION.useTvApps) updateConfig({...config, useTvApps: !config.useTvApps});
 	}, [config]);
 
 	/** Replace a row's order with `keys` (the full list of what's shown). */

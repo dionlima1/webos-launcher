@@ -6,7 +6,8 @@
 //    subscription open, which also keeps the service (and its web server) alive;
 //  - prepareVideo: downloads an album video so the TV can play it (video.js);
 //    subscribe for progress, the last answer has `src`;
-//  - planes: aircraft near a point, from adsb.lol (planes.js).
+//  - planes: aircraft near a point, from adsb.lol (planes.js);
+//  - apps: the installed apps with LG's own icons, over SSAP (apps.js).
 
 'use strict';
 
@@ -16,6 +17,7 @@ var album = require('./album');
 var manager = require('./manager');
 var video = require('./video');
 var planes = require('./planes');
+var apps = require('./apps');
 
 var service = new Service(pkgInfo.name);
 
@@ -69,5 +71,13 @@ service.register('planes', function (message) {
 	planes.fetchPlanes(p.lat, p.lon, p.radiusNm, function (error, list) {
 		if (error) message.respond({returnValue: false, errorText: String(error.message || error)});
 		else message.respond({returnValue: true, planes: list});
+	});
+});
+
+service.register('apps', function (message) {
+	var key = message.payload && typeof message.payload.key === 'string' ? message.payload.key : '';
+	apps.listApps(key, function (error, result) {
+		if (error) message.respond({returnValue: false, errorText: String(error.message || error)});
+		else message.respond({returnValue: true, key: result.key, apps: result.apps});
 	});
 });

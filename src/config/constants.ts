@@ -24,6 +24,8 @@ export const LUNA = {
 	albumManager: 'luna://io.github.dionlima1.launcher.album/manager',
 	/** subscription: downloads an album video for playback (progress, then `src`) */
 	prepareVideo: 'luna://io.github.dionlima1.launcher.album/prepareVideo',
+	/** the TV's installed apps with LG's icons, over SSAP via our service */
+	tvApps: 'luna://io.github.dionlima1.launcher.album/apps',
 	/** aircraft near a point, from adsb.lol via our service */
 	planes: 'luna://io.github.dionlima1.launcher.album/planes',
 	/** subscription: the TV asks before starting LG's screensaver (lib/screensaver.ts) */
@@ -93,5 +95,8 @@ export const USAGE_KEY = 'launcher-usage-v1';
 export const ALBUM_CACHE_KEY = 'launcher-album-cache-v3';   // v3: items carry `video`
 /** the albums on the TV, as edited from the phone */
 export const ALBUMS_KEY = 'launcher-albums-v1';
+/** the TV's SSAP client key (permission given once on screen) and its last app list */
+export const SSAP_KEY = 'launcher-ssap-key-v1';
+export const TV_APPS_KEY = 'launcher-tv-apps-v1';
 /** what the window was showing (mode and full screen), restored at the next start */
 export const WINDOW_KEY = 'launcher-window-v1';

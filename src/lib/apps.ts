@@ -1,6 +1,10 @@
-// Available apps. Two providers:
+// Available apps. Three providers:
 //
-//  1. Catalogue (default, no root): config/catalog.ts filtered by getAppLoadStatus.
+//  0. The TV's own list (preferred, no root): our service asks the TV over SSAP, the way
+//     LG's ThinQ phone app does, and gets every installed app with LG's own icon
+//     (services/album/apps.js). The TV asks permission on screen the first time; the
+//     key it gives back is kept here so it asks only once.
+//  1. Catalogue (fallback, no root): config/catalog.ts filtered by getAppLoadStatus.
 //  2. Homebrew Channel (opt-in, rooted TVs only): the Homebrew Channel's service runs
 //     shell commands as root for any app that asks. With the user's consent (an option
 //     in Settings, off by default) we use it to run `luna-send listLaunchPoints`, which
@@ -8,7 +12,7 @@
 //     service isn't there, we fall back to the catalogue.
 
 import {APP_CATALOG, type CatalogApp} from '../config/catalog';
-import {APP_ID, LUNA} from '../config/constants';
+import {APP_ID, LUNA, SSAP_KEY, TV_APPS_KEY} from '../config/constants';
 import {isWebOS, lunaCall, type LunaResponse} from './luna';
 import {appExists} from './launch';
 
@@ -20,7 +24,7 @@ export interface AppEntry {
 	color?: string;
 }
 
-export type AppSource = 'catalog' | 'homebrew';
+export type AppSource = 'tv' | 'catalog' | 'homebrew';
 
 export interface AppList {
 	apps: AppEntry[];
@@ -30,13 +34,62 @@ export interface AppList {
 
 const ICON_DIR = 'icons/apps/';
 
-export function listApps (useHomebrew: boolean): Promise<AppList> {
+/** `useTv`: try the TV's own list first (may show the TV's permission prompt). */
+export function listApps (useHomebrew: boolean, useTv: boolean = false): Promise<AppList> {
 	if (!isWebOS()) return Promise.resolve({apps: catalogEntries(APP_CATALOG), source: 'catalog'});
 	const catalog = () => listViaCatalog().then((apps): AppList => ({apps, source: 'catalog'}));
-	if (!useHomebrew) return catalog();
-	return listViaHomebrew()
-		.then((apps): AppList => ({apps, source: 'homebrew'}))
-		.catch(catalog);
+	const fallback = () => (useHomebrew ? listViaHomebrew().then((apps): AppList => ({apps, source: 'homebrew'})).catch(catalog) : catalog());
+	if (!useTv) return fallback();
+	return listViaTv()
+		.then((apps): AppList => ({apps, source: 'tv'}))
+		.catch(fallback);
+}
+
+// ---------- provider 0: the TV's own list (SSAP) ----------
+
+interface TvAppsResponse extends LunaResponse {
+	key?: string;
+	apps?: {id: string; title: string; icon: string; largeIcon: string; iconColor: string}[];
+}
+
+/** System launch points that make no sense as tiles. */
+const TV_HIDDEN = /^(com\.webos\.app\.(home|discovery|hdmi\d|livetv|externalinput|inputcommon|tvhotkey|miracast)|com\.local\.nativehome)/;
+
+/** Whether the TV has already allowed us (so asking won't show its prompt). */
+export function hasTvPermission (): boolean {
+	try { return !!localStorage.getItem(SSAP_KEY); } catch { return false; }
+}
+
+/** The last list from the TV, to draw real icons before the new answer comes. */
+export function cachedTvApps (): AppEntry[] | null {
+	try {
+		const apps = JSON.parse(localStorage.getItem(TV_APPS_KEY) || 'null') as AppEntry[] | null;
+		return apps && apps.map((a) => ({...a, iconUrl: plainIconUrl(a.iconUrl)}));
+	} catch { return null; }
+}
+
+/** The TV hands out icon links on its HTTPS port (3001), whose certificate is self-signed,
+ *  so the web view won't load them; the same files are on its plain HTTP port (3000). */
+function plainIconUrl (url: string | undefined): string | undefined {
+	return url ? url.replace(/^https:\/\/([^/:]+):3001\//, 'http://$1:3000/') : url;
+}
+
+function listViaTv (): Promise<AppEntry[]> {
+	let key = '';
+	try { key = localStorage.getItem(SSAP_KEY) || ''; } catch { /* asks again */ }
+	// Without a key the TV shows its prompt: give the person time to pick up the remote.
+	return lunaCall<TvAppsResponse>(LUNA.tvApps, {key}, key ? 15000 : 70000).then((r) => {
+		if (r.key) { try { localStorage.setItem(SSAP_KEY, r.key); } catch { /* asks again next time */ } }
+		const apps = (r.apps || [])
+			.filter((a) => a.id && a.title && a.id !== APP_ID && !TV_HIDDEN.test(a.id))
+			.map((a): AppEntry => {
+				const known = APP_CATALOG.find((c) => c.id === a.id);
+				return {id: a.id, title: known ? known.title : a.title, iconUrl: plainIconUrl(a.largeIcon || a.icon || undefined), color: a.iconColor || undefined};
+			});
+		if (!apps.length) throw new Error('Empty app list');
+		try { localStorage.setItem(TV_APPS_KEY, JSON.stringify(apps)); } catch { /* fine */ }
+		return apps;
+	});
 }
 
 // ---------- provider 1: catalogue ----------

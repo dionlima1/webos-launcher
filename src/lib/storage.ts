@@ -11,12 +11,15 @@ export interface UserConfig {
 	sourceIds: string[] | null;
 	/** read the live app list through the Homebrew Channel (root). Off by default. */
 	useHomebrew: boolean;
+	/** use the TV's own app list and LG's icons (SSAP; the TV asks permission once). On by default. */
+	useTvApps: boolean;
 }
 
 export const DEFAULT_CONFIG: UserConfig = {
 	appIds: DEFAULT_APP_IDS.slice(),
 	sourceIds: null,
-	useHomebrew: false
+	useHomebrew: false,
+	useTvApps: true
 };
 
 export function loadConfig (): UserConfig {
@@ -27,7 +30,8 @@ export function loadConfig (): UserConfig {
 		return {
 			appIds: Array.isArray(parsed.appIds) ? parsed.appIds : DEFAULT_CONFIG.appIds,
 			sourceIds: Array.isArray(parsed.sourceIds) ? parsed.sourceIds : null,
-			useHomebrew: parsed.useHomebrew === true
+			useHomebrew: parsed.useHomebrew === true,
+			useTvApps: parsed.useTvApps !== false
 		};
 	} catch {
 		return {...DEFAULT_CONFIG};
