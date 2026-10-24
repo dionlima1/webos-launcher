@@ -9,6 +9,7 @@ import {useKeys, clamp, type NavKey} from '../hooks/useKeys';
 import {useClock} from '../hooks/useClock';
 import {useTimeFormat} from '../hooks/useTimeFormat';
 import {photosOfAlbum, type AlbumRef, type Photo} from '../lib/album';
+import type {SaverConfig} from '../lib/storage';
 import type {Weather} from '../lib/weather';
 import {loadWindowState, saveWindowState, stepMode, type ViewId, type WindowMode} from '../lib/windowState';
 import {APP_GRID, LAYOUT} from '../theme/tokens';
@@ -20,8 +21,10 @@ export interface HomeButton {
 }
 
 interface Props {
-	/** the ambient view (instead of LG's screensaver): the window full screen, automatic */
+	/** the ambient view (instead of LG's screensaver): the window full screen */
 	ambient: boolean;
+	/** what the ambient view shows, and how long each view stays (Settings) */
+	saver: SaverConfig;
 	/** apps and inputs, already in today's order */
 	tiles: TileModel[];
 	/** small buttons beside the clock (LG Home, Settings) */
@@ -51,7 +54,7 @@ const COLS = LAYOUT.appColumns;
  *  ◀ ▶ go back and forth through the photos, OK on the photos opens the album panel
  *  (pick one album or all of them; QR code to add or remove), OK on a video plays it,
  *  Back leaves. The mode, full screen and chosen album are remembered for the next start. */
-export function Home ({ambient, tiles, buttons, active, visible, weather, photos, albums, managerUrl, onPhotosStale, emptyText, onActivate}: Props) {
+export function Home ({ambient, saver, tiles, buttons, active, visible, weather, photos, albums, managerUrl, onPhotosStale, emptyText, onActivate}: Props) {
 	const now = useClock();
 	const timeFormat = useTimeFormat();
 	const [zone, setZone] = useState<Zone>('grid');
@@ -226,7 +229,8 @@ export function Home ({ambient, tiles, buttons, active, visible, weather, photos
 			</div>
 			<div class={`window-slot${ambient || fullscreen ? ' window-slot--full' : ''}`} onClick={() => updateWindow({fullscreen: !fullscreen})} onMouseEnter={() => setZone('window')}>
 				<Window
-					mode={ambient ? 'auto' : mode}
+					mode={ambient ? saver.views : mode}
+					pace={ambient ? saver.pace : 1}
 					fullscreen={ambient || fullscreen}
 					ambient={ambient}
 					focused={zone === 'window'}

@@ -82,7 +82,8 @@ export const TIMING = {
 	retryMs: 10000,
 	staleReloadGapMs: 2 * 60 * 1000,   // at most one album re-read after failed photos this often         // first retry after a failed load (doubles each time)
 	videoSeekMs: 10000,     // ◀ ▶ while a video plays
-	ambientMaxMs: 60 * 60 * 1000,   // our ambient view, before LG's screensaver may start
+	saverCheckMs: 15000,    // how often a later screensaver start (Settings) is checked
+	turnWatchdogMs: 2 * 60 * 1000,  // a window view still up after this (× its pace) gives way to the next
 	webTimeoutMs: 20000,
 	albumTimeoutMs: 40000
 } as const;

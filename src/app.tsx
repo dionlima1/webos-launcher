@@ -11,7 +11,8 @@ import {listInputs, MOCK_INPUTS, type InputSource} from './lib/inputs';
 import {launchApp, launchLgHome} from './lib/launch';
 import {isWebOS} from './lib/luna';
 import {hidePointerOnForeground} from './lib/pointer';
-import {loadConfig, saveConfig, toggleId, type UserConfig} from './lib/storage';
+import {loadConfig, saveConfig, SAVER_CHOICES, toggleId, type SaverConfig, type UserConfig} from './lib/storage';
+import {MODES, MODE_LABEL} from './lib/windowState';
 import {appTile, inputTile, pickInOrder} from './lib/tiles';
 import {orderForToday, recordLaunch} from './lib/usage';
 import {fetchWeather, type Weather} from './lib/weather';
@@ -24,7 +25,16 @@ type Screen = 'home' | 'settings';
 
 const ROW = {apps: 'apps', sources: 'sources'} as const;
 const MISC = {lgHome: 'lg-home', settings: 'settings'} as const;
-const OPTION = {useTvApps: 'use-tv-apps'} as const;
+const OPTION = {
+	useTvApps: 'use-tv-apps',
+	saver: 'saver',
+	saverStart: 'saver-start',
+	saverViews: 'saver-views',
+	saverPace: 'saver-pace',
+	saverMax: 'saver-max'
+} as const;
+
+const PACE_LABEL: Record<number, string> = {0.5: 'Curto', 1: 'Normal', 2: 'Longo', 6: 'Bem longo'};
 
 const BUTTONS: HomeButton[] = [
 	{key: MISC.lgHome, label: 'LG Home', glyph: 'house'},
@@ -109,15 +119,25 @@ export function App () {
 		});
 	}, albumsKey);
 
-	// Ambient view: when LG's screensaver would start, we say no and show the window in
-	// full screen, automatic mode, instead. After an hour (or at the TV's next request
-	// past that hour) we let LG's screensaver start. Any key ends it and resets the hour.
+	// Ambient view (Início's screensaver, set up in Settings): the window in full screen
+	// instead of LG's screensaver. It starts when the TV asks to start its own (about two
+	// minutes without a key), or after the minutes chosen in Settings, whichever is later;
+	// after its time is up we let LG's screensaver start. Any key ends it and resets that.
 	const [ambient, setAmbient] = useState(false);
 	const ambientSince = useRef(0);     // 0 while not ambient
-	const ambientSpent = useRef(false);  // the hour was used up; LG's screensaver is next
+	const ambientSpent = useRef(false);  // its time was used up; LG's screensaver is next
+	const lastInput = useRef(Date.now());
 	const visibleRef = useRef(visible);
 	visibleRef.current = visible;
+	const saverRef = useRef(config.saver);
+	saverRef.current = config.saver;
+	const saver = config.saver;
 
+	const startAmbient = useCallback(() => {
+		ambientSince.current = Date.now();
+		setAmbient(true);
+		setScreen('home');   // Settings left open would cover it and keep the window still
+	}, []);
 	const endAmbient = useCallback((spent: boolean) => {
 		ambientSince.current = 0;
 		ambientSpent.current = spent;
@@ -125,26 +145,43 @@ export function App () {
 	}, []);
 
 	useEffect(() => watchScreenSaver((timestamp) => {
+		const s = saverRef.current;
 		const now = Date.now();
-		const withinHour = ambientSince.current === 0 || now - ambientSince.current < TIMING.ambientMaxMs;
-		if (!ambientSpent.current && withinHour && visibleRef.current) {
-			answerScreenSaver(timestamp, false);
-			if (ambientSince.current === 0) { ambientSince.current = now; setAmbient(true); }
-		} else {
+		if (!s.enabled || ambientSpent.current || !visibleRef.current) {
 			answerScreenSaver(timestamp, true);
-			endAmbient(true);
+			if (ambientSince.current) endAmbient(true);
+		} else if (ambientSince.current) {
+			const withinTime = now - ambientSince.current < s.maxMinutes * 60000;
+			answerScreenSaver(timestamp, !withinTime);
+			if (!withinTime) endAmbient(true);
+		} else {
+			// Not yet (a later start was chosen): keep LG's away; our own timer starts it.
+			answerScreenSaver(timestamp, false);
+			if (now - lastInput.current >= s.startMinutes * 60000) startAmbient();
 		}
 	}), []);
 
-	// The hour is up even if the TV doesn't ask again: leave the ambient view, so the
+	// A later start than the TV's: our own timer, checked while the home screen is up.
+	const ownTimer = saver.enabled && saver.startMinutes > 0 && visible && !ambient;
+	useEffect(() => {
+		if (!ownTimer) return;
+		const id = window.setInterval(() => {
+			const idle = Date.now() - lastInput.current;
+			if (!ambientSpent.current && visibleRef.current && idle >= saverRef.current.startMinutes * 60000) startAmbient();
+		}, TIMING.saverCheckMs);
+		return () => window.clearInterval(id);
+	}, [ownTimer]);
+
+	// Its time is up even if the TV doesn't ask again: leave the ambient view, so the
 	// screen is still and LG's screensaver gets its turn at the next request.
-	useTimeout(ambient, TIMING.ambientMaxMs, () => endAmbient(true));
+	useTimeout(ambient, saver.maxMinutes * 60000, () => endAmbient(true));
 
 	// Any key: back to where things were (the key itself only wakes the screen). The Home
 	// button never reaches the page as a key (the helper takes it and relaunches Início),
-	// so a relaunch counts as one.
+	// so a relaunch counts as one. Moving the Magic Remote's pointer counts as use too.
 	useEffect(() => {
 		const wake = (): boolean => {
+			lastInput.current = Date.now();
 			ambientSpent.current = false;
 			if (!ambientSince.current) return false;
 			endAmbient(false);
@@ -155,15 +192,21 @@ export function App () {
 			e.stopImmediatePropagation();
 			e.preventDefault();
 		};
+		const onPointer = () => { lastInput.current = Date.now(); };
 		const onRelaunch = () => { wake(); };
 		window.addEventListener('keydown', onKey, true);
+		window.addEventListener('mousemove', onPointer, true);
 		document.addEventListener('webOSRelaunch', onRelaunch);
 		return () => {
 			window.removeEventListener('keydown', onKey, true);
+			window.removeEventListener('mousemove', onPointer, true);
 			document.removeEventListener('webOSRelaunch', onRelaunch);
 		};
 	}, []);
-	useEffect(() => { if (!visible && ambientSince.current) endAmbient(false); }, [visible]);
+	useEffect(() => {
+		lastInput.current = Date.now();
+		if (!visible && ambientSince.current) endAmbient(false);
+	}, [visible]);
 
 	// The phone album manager: its address for the QR code, and the albums it edits.
 	useEffect(() => connectAlbumManager(() => albumsRef.current, setManagerUrl, (list) => {
@@ -197,14 +240,56 @@ export function App () {
 		{id: ROW.sources, label: 'Sources', noun: 'sources', items: inputs.map(inputTile), shown: shownInputs.map(inputTile)}
 	], [apps, inputs, shownApps, shownInputs]);
 
-	const options: OptionItem[] = useMemo(() => [
-		{
-			id: OPTION.useTvApps,
-			label: 'Apps e ícones da TV',
-			description: 'Usa a lista de apps instalados e os ícones da própria LG. Na primeira vez a TV pede permissão na tela. Desligado, usa o catálogo do Início.',
-			value: config.useTvApps
-		}
-	], [config.useTvApps]);
+	const options: OptionItem[] = useMemo(() => {
+		const s = config.saver;
+		const off = !s.enabled;
+		return [
+			{
+				id: OPTION.useTvApps,
+				label: 'Apps e ícones da TV',
+				description: 'Usa a lista de apps instalados e os ícones da própria LG. Na primeira vez a TV pede permissão na tela. Desligado, usa o catálogo do Início.',
+				value: config.useTvApps
+			},
+			{
+				id: OPTION.saver,
+				label: 'Descanso de tela do Início',
+				description: 'Quando a TV fica parada, mostra a janela em tela cheia no lugar do descanso da LG. Desligado, entra o descanso da própria LG.',
+				value: s.enabled
+			},
+			{
+				id: OPTION.saverStart,
+				label: 'Começa depois de',
+				description: 'Tempo sem apertar nenhuma tecla. A TV pede o descanso por volta de 2 minutos; na OLED, tela parada por muito tempo pode marcar, por isso o máximo é 10.',
+				value: false,
+				choice: s.startMinutes === 0 ? 'Quando a TV pedir' : `${s.startMinutes} minutos`,
+				dimmed: off
+			},
+			{
+				id: OPTION.saverViews,
+				label: 'O que mostrar',
+				description: 'Todas as telas, uma depois da outra, ou só uma delas.',
+				value: false,
+				choice: s.views === 'auto' ? 'Todas, alternando' : MODE_LABEL[s.views],
+				dimmed: off
+			},
+			{
+				id: OPTION.saverPace,
+				label: 'Tempo em cada tela',
+				description: 'Normal: uns 20 a 30 segundos por tela. Curto é a metade; Longo, o dobro; Bem longo, uns 2 a 3 minutos.',
+				value: false,
+				choice: PACE_LABEL[s.pace],
+				dimmed: off
+			},
+			{
+				id: OPTION.saverMax,
+				label: 'Depois, o descanso da LG',
+				description: 'Por quanto tempo o descanso do Início fica na tela antes de dar lugar ao da LG, que protege a tela e economiza energia.',
+				value: false,
+				choice: s.maxMinutes < 60 ? `${s.maxMinutes} minutos` : s.maxMinutes === 60 ? '1 hora' : `${s.maxMinutes / 60} horas`,
+				dimmed: off
+			}
+		];
+	}, [config.useTvApps, config.saver]);
 
 	// ----- actions -----
 	const onActivate = useCallback((item: TileModel | HomeButton) => {
@@ -223,8 +308,15 @@ export function App () {
 		}
 	}, [config, inputs]);
 
-	const onOption = useCallback((optionId: string) => {
+	const onOption = useCallback((optionId: string, delta: number) => {
+		const s = config.saver;
+		const setSaver = (patch: Partial<SaverConfig>) => updateConfig({...config, saver: {...s, ...patch}});
 		if (optionId === OPTION.useTvApps) updateConfig({...config, useTvApps: !config.useTvApps});
+		else if (optionId === OPTION.saver) setSaver({enabled: !s.enabled});
+		else if (optionId === OPTION.saverStart) setSaver({startMinutes: stepChoice(SAVER_CHOICES.startMinutes, s.startMinutes, delta)});
+		else if (optionId === OPTION.saverViews) setSaver({views: stepChoice(MODES, s.views, delta)});
+		else if (optionId === OPTION.saverPace) setSaver({pace: stepChoice(SAVER_CHOICES.pace, s.pace, delta)});
+		else if (optionId === OPTION.saverMax) setSaver({maxMinutes: stepChoice(SAVER_CHOICES.maxMinutes, s.maxMinutes, delta)});
 	}, [config]);
 
 	/** Replace a row's order with `keys` (the full list of what's shown). */
@@ -238,6 +330,7 @@ export function App () {
 			{/* Home stays mounted under Settings so it keeps its focus position. */}
 			<Home
 				ambient={ambient}
+				saver={saver}
 				tiles={tiles}
 				buttons={BUTTONS}
 				active={screen === 'home'}
@@ -254,4 +347,10 @@ export function App () {
 			<Toast message={toast} />
 		</>
 	);
+}
+
+/** The next (or previous) value in a list of choices, wrapping around. */
+function stepChoice<T> (choices: readonly T[], current: T, delta: number): T {
+	const i = choices.indexOf(current);
+	return choices[(i + delta + choices.length) % choices.length];
 }

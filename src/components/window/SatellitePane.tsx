@@ -9,6 +9,8 @@ import {Caption} from './Window';
 
 interface Props {
 	running: boolean;
+	/** how long the turn lasts, as a multiple of the usual one */
+	pace: number;
 	width: number;
 	height: number;
 	timeFormat: TimeFormat;
@@ -19,7 +21,7 @@ interface Props {
 let cache: {frame: SatelliteFrame; at: number} | null = null;
 
 /** The newest GOES-19 frame, cropped to SATELLITE.crop, with a marker on PLACE. */
-export function SatellitePane ({running, width, height, timeFormat, onDone}: Props) {
+export function SatellitePane ({running, pace, width, height, timeFormat, onDone}: Props) {
 	const [frame, setFrame] = useState<SatelliteFrame | null>(cache && cache.frame);
 	const [failed, setFailed] = useState(false);
 
@@ -34,20 +36,22 @@ export function SatellitePane ({running, width, height, timeFormat, onDone}: Pro
 	}, []);
 
 	// Nothing to show (offline, NOAA down): hand over to the next pane straight away.
-	useTimeout(running, failed ? 0 : TIMING.satelliteMs, onDone);
+	useTimeout(running, failed ? 0 : TIMING.satelliteMs * pace, onDone);
 
 	if (!frame) return <div class="pane pane--loading" />;
 	const geo = cropGeometry(SATELLITE, width, height);
 	const when = frame.time ? ` · ${timeText(frame.time, timeFormat)}` : '';
 	return (
 		<div class="pane pane--fade">
-			<div class="satellite" style={{backgroundImage: `url("${frame.url}")`, backgroundSize: geo.size, backgroundPosition: geo.position}} />
-			{geo.marker && (
-				<div class="marker" style={{left: `${geo.marker.x}px`, top: `${geo.marker.y}px`}}>
-					<span class="marker__dot" />
-					<span class="marker__label">{PLACE.name}</span>
-				</div>
-			)}
+			<div class="satellite-drift">
+				<div class="satellite" style={{backgroundImage: `url("${frame.url}")`, backgroundSize: geo.size, backgroundPosition: geo.position}} />
+				{geo.marker && (
+					<div class="marker" style={{left: `${geo.marker.x}px`, top: `${geo.marker.y}px`}}>
+						<span class="marker__dot" />
+						<span class="marker__label">{PLACE.name}</span>
+					</div>
+				)}
+			</div>
 			<div class="pane__shade" />
 			<Caption title={SATELLITE.title} credit={`Satélite GOES-19 · NOAA${when}`} />
 		</div>

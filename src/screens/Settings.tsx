@@ -26,7 +26,8 @@ interface Props {
 	active: boolean;
 	onToggle: (tabId: string, key: string) => void;
 	onReorder: (tabId: string, keys: string[]) => void;
-	onOption: (optionId: string) => void;
+	/** OK on an option (delta 1), or ◀ ▶ on a choice (delta -1 / 1) */
+	onOption: (optionId: string, delta: number) => void;
 	onClose: () => void;
 }
 
@@ -45,7 +46,7 @@ const HINT = {
 	select: 'OK adds or removes an item · Hold OK to re-order · Back returns home',
 	reorder: 'OK picks up an item · Hold OK or choose Done to finish',
 	holding: 'Arrows move it · OK puts it down · Back cancels',
-	options: 'OK turns an option on or off · Back returns home'
+	options: 'OK turns an option on or off · ◀ ▶ change a choice · Back returns home'
 } as const;
 
 /** Settings: pick which apps and sources appear on the home rows and their order, plus options.
@@ -115,7 +116,7 @@ export function Settings ({tabs, options, active, onToggle, onReorder, onOption,
 	const onPress = () => {
 		if (zone === 'button') { setMode(!reordering); return; }
 		if (zone === 'tabs') { if (count > 0) setZone('content'); return; }
-		if (onOptions) { if (options[optionIndex]) onOption(options[optionIndex].id); return; }
+		if (onOptions) { if (options[optionIndex]) onOption(options[optionIndex].id, 1); return; }
 		activateGridItem(gridIndex);
 	};
 
@@ -156,6 +157,9 @@ export function Settings ({tabs, options, active, onToggle, onReorder, onOption,
 		if (onOptions) {
 			if (key === 'up') { if (optionIndex === 0) setZone('tabs'); else setOptionIndex(optionIndex - 1); }
 			else if (key === 'down') setOptionIndex(clamp(optionIndex + 1, 0, count - 1));
+			else if ((key === 'left' || key === 'right') && options[optionIndex] && options[optionIndex].choice !== undefined) {
+				onOption(options[optionIndex].id, key === 'left' ? -1 : 1);
+			}
 			return true;
 		}
 
@@ -221,7 +225,7 @@ export function Settings ({tabs, options, active, onToggle, onReorder, onOption,
 						focused={zone === 'content'}
 						selected={optionIndex}
 						onSelect={(i) => { setZone('content'); setOptionIndex(i); }}
-						onActivate={(i) => { setZone('content'); onOption(options[i].id); }}
+						onActivate={(i) => { setZone('content'); onOption(options[i].id, 1); }}
 					/>
 				)}
 				{reordering && count === 0 && <p class="settings__hint">Nothing on the home screen yet.</p>}

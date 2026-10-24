@@ -7,6 +7,8 @@ import {Caption} from './Window';
 
 interface Props {
 	running: boolean;
+	/** how long the turn lasts, as a multiple of the usual one */
+	pace: number;
 	onDone: () => void;
 }
 
@@ -15,7 +17,7 @@ let cursor = 0;
 
 /** "Neste dia": a couple of things that happened on today's date, each with the picture
  *  of its Wikipedia article over a blurred copy of itself. */
-export function HistoryPane ({running, onDone}: Props) {
+export function HistoryPane ({running, pace, onDone}: Props) {
 	const [events, setEvents] = useState<HistoryEvent[] | null>(null);
 	const [shown, setShown] = useState<{event: HistoryEvent; image: string | null} | null>(null);
 	const [count, setCount] = useState(0);
@@ -41,7 +43,7 @@ export function HistoryPane ({running, onDone}: Props) {
 
 	useTimeout(running && failed, 0, onDone);
 	useTimeout(running && !!shown, TIMING.historyMs, () => {
-		if (count + 1 >= TIMING.historyPerTurn) onDone();
+		if (count + 1 >= Math.max(1, Math.round(TIMING.historyPerTurn * pace))) onDone();
 		else setCount(count + 1);
 	}, shown);
 

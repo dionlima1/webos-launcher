@@ -16,7 +16,7 @@ Developer Mode, no root), in Brazilian Portuguese:
   Range support, which the TV's player needs).
 - **Album manager on the phone**: a QR code opens a page served by the TV itself (no
   outside server) to add or remove albums.
-- **Ambient view** instead of LG's screensaver for up to an hour, then LG's takes over.
+- **Ambient view** instead of LG's screensaver, then LG's takes over. Settings › Options choose when it starts, which views it shows (all in turn, or one), how long each stays and how long it runs.
 - The Home button can open Início through the no-root helper from
   [Clean Your TV](https://github.com/Razdva122/clean-your-tv-lg-webos) (MIT), built
   separately.

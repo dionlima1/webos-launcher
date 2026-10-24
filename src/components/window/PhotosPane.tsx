@@ -32,6 +32,8 @@ interface Playback {
 
 interface Props {
 	running: boolean;
+	/** how long the turn lasts, as a multiple of the usual one */
+	pace: number;
 	/** the photos to show (every album, or the chosen one) */
 	photos: Photo[];
 	/** keep the given order (one album, by date) instead of shuffling */
@@ -78,7 +80,7 @@ function stepPhoto (photos: Photo[], delta: number, ordered: boolean): Photo {
 /** A few photos per turn: the photo fitted inside the pane over a blurred, darkened copy
  *  of itself, with a slow zoom. A video shows its first frame with a play mark; it only
  *  plays when asked (OK in full screen), and the slideshow waits while it does. */
-export function PhotosPane ({running, photos, ordered, width, height, nav, videoCmd, onVideoState, onStale, onDone}: Props) {
+export function PhotosPane ({running, pace, photos, ordered, width, height, nav, videoCmd, onVideoState, onStale, onDone}: Props) {
 	/** `position` is 1-based within an ordered album, 0 when shuffled */
 	const [photo, setPhoto] = useState<{photo: Photo; src: string; position: number} | null>(null);
 	/** what to load next: one step forward or back; `n` makes every request distinct */
@@ -166,7 +168,7 @@ export function PhotosPane ({running, photos, ordered, width, height, nav, video
 
 	useTimeout(running && failures >= MAX_FAILURES, 0, onDone);
 	useTimeout(running && !!photo && !playback, isVideo ? TIMING.videoPosterMs : TIMING.photoMs, () => {
-		if (shown + 1 >= TIMING.photosPerTurn) { onDone(); return; }
+		if (shown + 1 >= Math.max(1, Math.round(TIMING.photosPerTurn * pace))) { onDone(); return; }
 		setShown(shown + 1);
 		setRequest((r) => ({delta: 1, n: r.n + 1}));
 	}, photo);

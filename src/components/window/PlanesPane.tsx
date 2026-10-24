@@ -8,6 +8,8 @@ import {Caption} from './Window';
 
 interface Props {
 	running: boolean;
+	/** how long the turn lasts, as a multiple of the usual one */
+	pace: number;
 	width: number;
 	height: number;
 	onDone: () => void;
@@ -25,7 +27,7 @@ let last: Plane[] = [];
 
 /** Planes in the air around home on a dark map, refreshed every few seconds and moving
  *  smoothly in between; the closest ones are listed with airline, model and height. */
-export function PlanesPane ({running, width, height, onDone}: Props) {
+export function PlanesPane ({running, pace, width, height, onDone}: Props) {
 	const [planes, setPlanes] = useState<Plane[]>(last);
 	const [failed, setFailed] = useState(false);
 	const zoom = zoomFor(width);
@@ -44,7 +46,7 @@ export function PlanesPane ({running, width, height, onDone}: Props) {
 	}, [running, radiusNm]);
 
 	useTimeout(running && failed, 0, onDone);
-	useTimeout(running && !failed, TIMING.planesMs, onDone);
+	useTimeout(running && !failed, TIMING.planesMs * pace, onDone);
 
 	const center = worldPixel(PLACE.lat, PLACE.lon, zoom, MAP_TILE_SIZE);
 	const x0 = center.x - width / 2;

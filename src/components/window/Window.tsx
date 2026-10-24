@@ -1,4 +1,6 @@
 import {useCallback, useEffect, useState} from 'preact/hooks';
+import {TIMING} from '../../config/constants';
+import {useTimeout} from '../../hooks/useTimers';
 import type {AlbumRef, Photo} from '../../lib/album';
 import type {TimeFormat} from '../../lib/clock';
 import {MODES, MODE_LABEL, type ViewId, type WindowMode} from '../../lib/windowState';
@@ -14,6 +16,8 @@ import {HistoryPane} from './HistoryPane';
 interface Props {
 	/** 'auto' cycles through the views; a single view stays on screen */
 	mode: WindowMode;
+	/** how long each view stays, as a multiple of its usual turn (the screensaver's choice) */
+	pace: number;
 	fullscreen: boolean;
 	/** standing in for LG's screensaver: no hints or chips, nothing that stays put */
 	ambient: boolean;
@@ -50,7 +54,7 @@ interface Props {
 
 /** The big panel next to the apps, or the whole screen. Each pane says when its turn is
  *  over; in auto mode the next view follows, otherwise the same view starts again. */
-export function Window ({mode, fullscreen, ambient, focused, running, severity, photos, ordered, albums, albumChoice, panelRow, managerUrl, panelOpen, photoNav, videoCmd, videoState, onVideoState, onPhotosStale, timeFormat, onView}: Props) {
+export function Window ({mode, pace, fullscreen, ambient, focused, running, severity, photos, ordered, albums, albumChoice, panelRow, managerUrl, panelOpen, photoNav, videoCmd, videoState, onVideoState, onPhotosStale, timeFormat, onView}: Props) {
 	const views = mode === 'auto' ? sequence(severity, photos.length > 0) : [mode];
 	const [step, setStep] = useState(0);
 	const view = views[step % views.length];
@@ -68,15 +72,20 @@ export function Window ({mode, fullscreen, ambient, focused, running, severity, 
 		if (running && upcoming === 'radar' && view !== 'radar') preloadRadar(width, height);
 	}, [step, upcoming, width, running]);
 	const paneRunning = running && !panelOpen;
+
+	// A turn that never ends (a feed that hangs, a pane that misses its cue) must not hold
+	// the window: past the watchdog the next view comes anyway (never during a video).
+	const videoBusy = videoState === 'loading' || videoState === 'playing' || videoState === 'paused';
+	useTimeout(paneRunning && !videoBusy, TIMING.turnWatchdogMs * pace, next, step);
 	const hint = ambient ? '' : fullscreen ? fullscreenHint(view, videoState) : focused ? '▶ trocar · OK tela cheia' : '';
 
 	return (
 		<div class={`window${fullscreen ? ' window--full' : ''}${ambient ? ' window--ambient' : ''}${focused && !fullscreen ? ' window--focused' : ''}`}>
-			{view === 'satellite' && <SatellitePane key={step} running={paneRunning} width={width} height={height} timeFormat={timeFormat} onDone={next} />}
-			{view === 'radar' && <RadarPane key={`${step}:${width}`} running={paneRunning} width={width} height={height} loops={mode === 'auto' ? RADAR_LOOPS[severity] : RADAR_LOOPS[0]} timeFormat={timeFormat} onDone={next} />}
-			{view === 'planes' && <PlanesPane key={`${step}:${width}`} running={paneRunning} width={width} height={height} onDone={next} />}
-			{view === 'history' && <HistoryPane key={step} running={paneRunning} onDone={next} />}
-			{view === 'photos' && <PhotosPane key={step} running={paneRunning} photos={photos} ordered={ordered} width={width} height={height} nav={photoNav} videoCmd={videoCmd} onVideoState={onVideoState} onStale={onPhotosStale} onDone={next} />}
+			{view === 'satellite' && <SatellitePane key={step} running={paneRunning} pace={pace} width={width} height={height} timeFormat={timeFormat} onDone={next} />}
+			{view === 'radar' && <RadarPane key={`${step}:${width}`} running={paneRunning} width={width} height={height} loops={Math.max(1, Math.round((mode === 'auto' ? RADAR_LOOPS[severity] : RADAR_LOOPS[0]) * pace))} timeFormat={timeFormat} onDone={next} />}
+			{view === 'planes' && <PlanesPane key={`${step}:${width}`} running={paneRunning} pace={pace} width={width} height={height} onDone={next} />}
+			{view === 'history' && <HistoryPane key={step} running={paneRunning} pace={pace} onDone={next} />}
+			{view === 'photos' && <PhotosPane key={step} running={paneRunning} pace={pace} photos={photos} ordered={ordered} width={width} height={height} nav={photoNav} videoCmd={videoCmd} onVideoState={onVideoState} onStale={onPhotosStale} onDone={next} />}
 			<div class="window__chips">
 				{MODES.map((m) => (
 					<span key={m} class={`chip${m === mode ? ' chip--on' : ''}${mode === 'auto' && m === view ? ' chip--current' : ''}`}>{MODE_LABEL[m]}</span>
