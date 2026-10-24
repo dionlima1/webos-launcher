@@ -1,0 +1,9 @@
+{
+  "id": "io.github.dionlima1.launcher.album",
+  "description": "Google Photos shared album reader",
+  "services": [
+    {
+      "name": "io.github.dionlima1.launcher.album"
+    }
+  ]
+}

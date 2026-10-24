@@ -63,11 +63,11 @@ function listExternalInputs (): Promise<InputSource[]> {
 	);
 }
 
-/** Sample data so the layout can be developed in a desktop browser. */
+/** Sample data so the layout can be developed in a desktop browser: our TV's inputs. */
 export const MOCK_INPUTS: InputSource[] = [
 	LIVE_TV,
-	{id: 'HDMI_1', appId: 'com.webos.app.hdmi1', label: 'Streaming Box', port: 1, connected: true, icon: 'streamingbox.png'},
-	{id: 'HDMI_2', appId: 'com.webos.app.hdmi2', label: 'Sound Bar', port: 2, connected: true, icon: 'hometheater.png'},
-	{id: 'HDMI_3', appId: 'com.webos.app.hdmi3', label: 'Games Console', port: 3, connected: true, icon: 'gameconsole.png'},
+	{id: 'HDMI_1', appId: 'com.webos.app.hdmi1', label: 'PS5 Console de Games', port: 1, connected: true, icon: 'gameconsole.png'},
+	{id: 'HDMI_2', appId: 'com.webos.app.hdmi2', label: 'Samsung Sound Bar', port: 2, connected: true, icon: 'hometheater.png'},
+	{id: 'HDMI_3', appId: 'com.webos.app.hdmi3', label: 'Net TV-Cable Decodificador', port: 3, connected: true, icon: 'settopbox.png'},
 	{id: 'HDMI_4', appId: 'com.webos.app.hdmi4', label: 'HDMI 4', port: 4, connected: false, icon: 'HDMI_4.png'}
 ];

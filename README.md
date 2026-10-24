@@ -1,4 +1,31 @@
-# webOS Launcher
+# Início (fork of webOS Launcher)
+
+This fork turns the launcher into **Início**, a home screen for an LG OLED C1 (webOS 6,
+Developer Mode, no root), in Brazilian Portuguese:
+
+- **Apps and inputs in one grid, ordered by use** (scores that halve every week, frozen
+  for the day so tiles don't move mid-session); short names for HDMI inputs.
+- **A window beside the grid** that cycles, or stays on, one of: GOES-19 **satellite**
+  (NOAA), weather **radar** (RainViewer over Esri's dark map), live **planes** around home
+  (adsb.lol, with airports and trails for the closest three), **photos** from Google
+  Photos albums shared by link, and **"Neste dia"** (Wikipedia). Every view goes full
+  screen; the chosen view, album and full screen are remembered.
+- **Weather**: current conditions, the next six hours with icons, and a severity that
+  makes the automatic mode show the radar more as the weather gets worse.
+- **Album videos** play on request (the service downloads them and serves them back with
+  Range support, which the TV's player needs).
+- **Album manager on the phone**: a QR code opens a page served by the TV itself (no
+  outside server) to add or remove albums.
+- **Ambient view** instead of LG's screensaver for up to an hour, then LG's takes over.
+- The Home button can open Início through the no-root helper from
+  [Clean Your TV](https://github.com/Razdva122/clean-your-tv-lg-webos) (MIT), built
+  separately.
+
+Personal settings (location, album link, start order, labels) go in the git-ignored
+`src/config/home.local.ts`; see `home.local.example.ts`. The JS service in
+`services/album` is packaged with the app (`npm run package`).
+
+---
 
 A minimalist home screen for LG webOS TVs: a greeting and clock, a row of your apps, a
 row of your inputs, and a way back to LG's own home. Built for **webOS 6 (Chrome 79)**,
@@ -32,7 +59,7 @@ back. Clicking works everywhere.
 
 The launcher doesn't take over the HOME button. On a rooted TV you can map a button to it
 with [LG Input Hook](https://github.com/Simon34545/lginputhook) (app ID
-`works.partridge.webos-launcher`).
+`io.github.dionlima1.launcher`).
 
 ## Install
 
@@ -51,7 +78,7 @@ Needs Node 18+.
 ```sh
 npm install
 npm run build      # type-check, then build dist/ (chrome79, classic script)
-npm run package    # dist/ → build/works.partridge.webos-launcher_<version>_all.ipk
+npm run package    # dist/ → build/io.github.dionlima1.launcher_<version>_all.ipk
 ```
 
 To install on a rooted TV over SSH, copy `tv.env.example` to `tv.env` (git-ignored) and
@@ -145,7 +172,7 @@ git tag v1.0.1 && git push origin v1.0.1
 ```
 
 The release workflow builds the ipk, generates the Homebrew Channel manifest
-(`works.partridge.webos-launcher.manifest.json`, with the ipk's SHA-256) and attaches both
+(`io.github.dionlima1.launcher.manifest.json`, with the ipk's SHA-256) and attaches both
 to a GitHub release. The Homebrew repository reads the manifest from the latest release.
 
 ## Licence and credits

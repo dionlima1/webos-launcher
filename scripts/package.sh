@@ -1,5 +1,6 @@
 #!/bin/sh
-# Packages dist/ into an .ipk in build/ using the webOS CLI (installed as a dev dependency).
+# Packages dist/ and the album service (services/album) into an .ipk in build/ using
+# the webOS CLI (installed as a dev dependency).
 # `--no-minify` because ares' legacy minifier cannot parse modern bundler output.
 set -e
 cd "$(dirname "$0")/.."
@@ -9,5 +10,5 @@ mkdir -p dist/licenses
 cp LICENSE dist/licenses/LICENSE.txt
 mkdir -p build
 rm -f build/*.ipk
-npx ares-package dist --no-minify -o build
+npx ares-package dist services/album --no-minify -o build
 echo "Packaged: $(ls build/*.ipk)"

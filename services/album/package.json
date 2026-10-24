@@ -1,0 +1,8 @@
+{
+  "name": "io.github.dionlima1.launcher.album",
+  "version": "1.0.0",
+  "description": "Reads a Google Photos album shared by link for the launcher's window",
+  "main": "service.js",
+  "private": true,
+  "license": "MIT"
+}

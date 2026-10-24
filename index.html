@@ -1,9 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=1920, initial-scale=1.0" />
-    <title>Launcher</title>
+    <!-- Google refuses photos requested from a localhost page (HTTP 429). On the TV the app
+         is a file and sends no referrer anyway; this makes the dev server behave the same. -->
+    <meta name="referrer" content="no-referrer" />
+    <title>Início</title>
     <script type="module" src="./src/main.tsx"></script>
   </head>
   <body>

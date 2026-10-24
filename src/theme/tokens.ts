@@ -29,11 +29,16 @@ export const COLOR = {
 
 export const FONT = {
 	family: '"Inter Variable", "LG Smart UI", "Helvetica Neue", Arial, sans-serif',
-	greeting: 72,
-	clock: 32,
-	clockTime: 44,
+	clock: 26,
+	clockTime: 68,
 	rowLabel: 20,
 	tileLabel: 19,
+	appTileLabel: 22,
+	homeButton: 22,
+	windowTitle: 30,
+	windowCredit: 19,
+	chip: 19,
+	markerLabel: 20,
 	settingsTitle: 40,
 	settingsTab: 26,
 	settingsButton: 22,
@@ -47,14 +52,40 @@ export const LAYOUT = {
 	screenWidth: 1920,
 	screenHeight: 1080,
 	edgePadding: 140,       // heavy padding around the screen edges
-	headerTop: 84,
-	rowsTop: 236,           // rows start here, below the greeting and clock
-	tileSize: 144,          // app / source tiles are square
+	headerTop: 84,          // settings screen title
+	// Home: the clock and the app grid on the left, the window on the right. The screen
+	// edge, the gap between grid and window, and the right edge are all about 120 px:
+	// 120 + grid 598 + 122 + window 960 + 120 = 1920.
+	homeLeft: 120,
+	clockTop: 48,
+	rowsTop: 300,           // the app grid starts here, below the clock and the forecast
+	tileSize: 144,          // the settings picker's tiles are square
 	tileGap: 28,
 	tileRadius: 24,
 	rowLabelGap: 14,        // gap between a row's subheader and its tiles
 	rowGap: 28,             // vertical space between rows
-	gridColumns: 9          // settings picker grid
+	gridColumns: 9,         // settings picker grid
+	appTileSize: 170,       // apps and inputs, ordered by use
+	appTileGap: 44,
+	appColumns: 3,
+	appRowsVisible: 3,      // more rows than this scroll vertically
+	appRowGap: 30,
+	appLabelHeight: 32,     // one line of label under an app tile
+	focusRoom: 24,          // margin kept around clipped areas so a focused tile isn't cut
+	windowLeft: 840,
+	windowTop: 100,
+	windowWidth: 960,
+	windowHeight: 880,
+	windowRadius: 36
+} as const;
+
+const APP_LABEL_MARGIN = 14;   // matches .tile__label's margin-top
+
+/** Geometry of the home screen's app grid, derived from LAYOUT. */
+export const APP_GRID = {
+	width: LAYOUT.appColumns * LAYOUT.appTileSize + (LAYOUT.appColumns - 1) * LAYOUT.appTileGap,
+	rowPitch: LAYOUT.appTileSize + APP_LABEL_MARGIN + LAYOUT.appLabelHeight + LAYOUT.appRowGap,
+	height: LAYOUT.appRowsVisible * (LAYOUT.appTileSize + APP_LABEL_MARGIN + LAYOUT.appLabelHeight) + (LAYOUT.appRowsVisible - 1) * LAYOUT.appRowGap
 } as const;
 
 export const MOTION = {
