@@ -6,7 +6,7 @@ import type {Severity} from '../../lib/weather';
 import {LAYOUT} from '../../theme/tokens';
 import {AlbumPanel} from './AlbumPanel';
 import {SatellitePane} from './SatellitePane';
-import {RadarPane} from './RadarPane';
+import {preloadRadar, RadarPane} from './RadarPane';
 import {PhotosPane, type PhotoNav, type VideoCmd, type VideoState} from './PhotosPane';
 import {PlanesPane} from './PlanesPane';
 import {HistoryPane} from './HistoryPane';
@@ -61,6 +61,12 @@ export function Window ({mode, fullscreen, ambient, focused, running, severity, 
 
 	const width = fullscreen ? LAYOUT.screenWidth : LAYOUT.windowWidth;
 	const height = fullscreen ? LAYOUT.screenHeight : LAYOUT.windowHeight;
+
+	// The radar is next: load it now, so it moves from its first moment.
+	const upcoming = views[(step + 1) % views.length];
+	useEffect(() => {
+		if (running && upcoming === 'radar' && view !== 'radar') preloadRadar(width, height);
+	}, [step, upcoming, width, running]);
 	const paneRunning = running && !panelOpen;
 	const hint = ambient ? '' : fullscreen ? fullscreenHint(view, videoState) : focused ? '▶ trocar · OK tela cheia' : '';
 

@@ -174,7 +174,8 @@ export function App () {
 	const updateConfig = (next: UserConfig) => { setConfig(next); saveConfig(next); };
 
 	// ----- the home grid -----
-	const shownApps = useMemo(() => pickInOrder(apps, config.appIds, (a) => a.id), [apps, config.appIds]);
+	// Every installed app, unless hidden in Settings; the order comes from use (below).
+	const shownApps = useMemo(() => apps.filter((a) => config.hiddenAppIds.indexOf(a.id) === -1), [apps, config.hiddenAppIds]);
 	const shownInputs = useMemo(
 		() => (config.sourceIds ? pickInOrder(inputs, config.sourceIds, (s) => s.appId) : inputs),
 		[inputs, config.sourceIds]
@@ -192,7 +193,7 @@ export function App () {
 	}, [shownApps, shownInputs]);
 
 	const tabs: SettingsTab[] = useMemo(() => [
-		{id: ROW.apps, label: 'Apps', noun: 'apps', items: apps.map(appTile), shown: shownApps.map(appTile)},
+		{id: ROW.apps, label: 'Apps', noun: 'apps', items: apps.map(appTile), shown: shownApps.map(appTile), reorderable: false},
 		{id: ROW.sources, label: 'Sources', noun: 'sources', items: inputs.map(inputTile), shown: shownInputs.map(inputTile)}
 	], [apps, inputs, shownApps, shownInputs]);
 
@@ -215,7 +216,7 @@ export function App () {
 
 	const onToggle = useCallback((tabId: string, key: string) => {
 		if (tabId === ROW.apps) {
-			updateConfig({...config, appIds: toggleId(config.appIds, key)});
+			updateConfig({...config, hiddenAppIds: toggleId(config.hiddenAppIds, key)});
 		} else {
 			const current = config.sourceIds || inputs.map((s) => s.appId);
 			updateConfig({...config, sourceIds: toggleId(current, key)});

@@ -5,8 +5,11 @@ import {STORAGE_KEY} from '../config/constants';
 import {DEFAULT_APP_IDS} from '../config/catalog';
 
 export interface UserConfig {
-	/** ordered app IDs for the Apps row */
+	/** ordered app IDs for the Apps row (the catalogue's choice; Início shows every app
+	 *  except hiddenAppIds instead) */
 	appIds: string[];
+	/** installed apps kept off the home screen */
+	hiddenAppIds: string[];
 	/** ordered input appIds (com.webos.app.hdmiN) for the Sources row; null → all inputs */
 	sourceIds: string[] | null;
 	/** read the live app list through the Homebrew Channel (root). Off by default. */
@@ -17,6 +20,7 @@ export interface UserConfig {
 
 export const DEFAULT_CONFIG: UserConfig = {
 	appIds: DEFAULT_APP_IDS.slice(),
+	hiddenAppIds: [],
 	sourceIds: null,
 	useHomebrew: false,
 	useTvApps: true
@@ -29,6 +33,7 @@ export function loadConfig (): UserConfig {
 		const parsed = JSON.parse(raw) as Partial<UserConfig>;
 		return {
 			appIds: Array.isArray(parsed.appIds) ? parsed.appIds : DEFAULT_CONFIG.appIds,
+			hiddenAppIds: Array.isArray(parsed.hiddenAppIds) ? parsed.hiddenAppIds : [],
 			sourceIds: Array.isArray(parsed.sourceIds) ? parsed.sourceIds : null,
 			useHomebrew: parsed.useHomebrew === true,
 			useTvApps: parsed.useTvApps !== false

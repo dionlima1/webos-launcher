@@ -16,6 +16,8 @@ export interface SettingsTab {
 	items: TileModel[];
 	/** what's on the home screen, in home-screen order */
 	shown: TileModel[];
+	/** false when the home screen sets the order itself (apps go by use): no re-order mode */
+	reorderable?: boolean;
 }
 
 interface Props {
@@ -64,6 +66,7 @@ export function Settings ({tabs, options, active, onToggle, onReorder, onOption,
 	const onOptions = tabIndex === tabs.length;
 	const tab: SettingsTab | undefined = onOptions ? undefined : tabs[tabIndex];
 	const items = tab ? (reordering ? tab.shown : tab.items) : [];
+	const canReorder = !!tab && tab.reorderable !== false;
 	const count = onOptions ? options.length : items.length;
 	const cols = LAYOUT.gridColumns;
 	const keysOf = (list: TileModel[]) => list.map((t) => t.key);
@@ -77,7 +80,7 @@ export function Settings ({tabs, options, active, onToggle, onReorder, onOption,
 
 	/** Switch re-order mode, keeping focus on the same item where it exists in both lists. */
 	const setMode = (next: boolean) => {
-		if (!tab || next === reordering) return;
+		if (!tab || next === reordering || (next && !canReorder)) return;
 		const focusedKey = items[gridIndex] && items[gridIndex].key;
 		const target = next ? tab.shown : tab.items;
 		const i = focusedKey ? keysOf(target).indexOf(focusedKey) : -1;
@@ -167,7 +170,7 @@ export function Settings ({tabs, options, active, onToggle, onReorder, onOption,
 			case 'down': setGridIndex((i) => (i + cols < count ? i + cols : i)); break;
 		}
 		return true;
-	}, [zone, tabIndex, tabCount, gridIndex, optionIndex, count, tab, onOptions, options, reordering, held, items, onReorder, onClose]);
+	}, [zone, tabIndex, tabCount, gridIndex, optionIndex, count, tab, canReorder, onOptions, options, reordering, held, items, onReorder, onClose]);
 
 	useKeys(handleKey, active);
 
@@ -190,7 +193,7 @@ export function Settings ({tabs, options, active, onToggle, onReorder, onOption,
 							{label}
 						</div>
 					))}
-					{tab && (
+					{tab && canReorder && (
 						<div
 							class={buttonClass}
 							onMouseEnter={() => setZone('button')}

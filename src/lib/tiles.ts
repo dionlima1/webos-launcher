@@ -7,7 +7,13 @@ import type {TileModel} from '../components/Tile';
 const INPUT_ICON_DIR = 'icons/inputs/';
 
 export function appTile (app: AppEntry): TileModel {
-	return {key: app.id, label: app.title, imageUrl: app.iconUrl, color: app.color};
+	return {key: app.id, label: shortTitle(app.title), imageUrl: app.iconUrl, color: app.color};
+}
+
+/** "discovery+ : O Streaming que é Vida Real e Muito Mais" → "discovery+": some apps put
+ *  a slogan in their title, which a tile label can't fit. */
+function shortTitle (title: string): string {
+	return title.split(/\s+[:|–—-]\s+/)[0];
 }
 
 export function inputTile (input: InputSource): TileModel {

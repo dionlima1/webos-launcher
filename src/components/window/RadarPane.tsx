@@ -4,6 +4,7 @@ import {AIRPORTS, PLACE} from '../../config/home';
 import {useTimeout} from '../../hooks/useTimers';
 import {timeText, type TimeFormat} from '../../lib/clock';
 import {fetchRadarFrames, MAP_TILE_SIZE, mapTileUrl, radarTileUrl, TILE_SIZE, tilesCovering, worldPixel, type RadarFrames} from '../../lib/radar';
+import {preloadImage} from '../../lib/web';
 import {Caption} from './Window';
 
 interface Props {
@@ -22,22 +23,53 @@ const MAP_SCALE = 1.5;
 
 let cache: {data: RadarFrames; at: number} | null = null;
 
-/** The last two hours of radar around PLACE, played as a loop over a dark map. It opens
- *  on the newest frame (while the older ones load), then plays oldest → newest. */
+/** The frame list, fetched at most every 10 minutes (RainViewer's own pace). */
+function radarFrames (): Promise<RadarFrames> {
+	if (cache && Date.now() - cache.at < TIMING.feedRefreshMs) return Promise.resolve(cache.data);
+	return fetchRadarFrames().then((data) => {
+		cache = {data, at: Date.now()};
+		return data;
+	});
+}
+
+/** What the pane draws for a size: the map's corner and the tiles covering it. */
+function radarView (width: number, height: number) {
+	const viewW = width / MAP_SCALE;
+	const viewH = height / MAP_SCALE;
+	const center = worldPixel(PLACE.lat, PLACE.lon);
+	const x0 = center.x - viewW / 2;
+	const y0 = center.y - viewH / 2;
+	return {
+		viewW, viewH, x0, y0,
+		radarTiles: tilesCovering(x0, y0, viewW, viewH, TILE_SIZE),
+		mapTiles: tilesCovering(x0, y0, viewW, viewH, MAP_TILE_SIZE)
+	};
+}
+
+/** Fetch the frames and their images ahead of the radar's turn, so it moves from its
+ *  first moment. Called by the window while the view before the radar is on screen. */
+export function preloadRadar (width: number, height: number): void {
+	radarFrames().then((data) => {
+		const {radarTiles, mapTiles} = radarView(width, height);
+		const urls = mapTiles.map((t) => mapTileUrl('base', t.x, t.y))
+			.concat(mapTiles.map((t) => mapTileUrl('labels', t.x, t.y)));
+		for (const f of data.frames) for (const t of radarTiles) urls.push(radarTileUrl(data.host, f, t.x, t.y));
+		for (const url of urls) preloadImage(url).catch(() => undefined);
+	}).catch(() => undefined);
+}
+
+/** The last two hours of radar around PLACE, played as a loop over a dark map: oldest →
+ *  newest straight away, a pause on the newest, again. */
 export function RadarPane ({running, width, height, loops: turns, timeFormat, onDone}: Props) {
 	const [data, setData] = useState<RadarFrames | null>(cache && cache.data);
 	const [failed, setFailed] = useState(false);
-	const [index, setIndex] = useState(() => (cache ? cache.data.frames.length - 1 : 0));
+	const [index, setIndex] = useState(0);
 	const [loops, setLoops] = useState(0);
 
 	useEffect(() => {
-		if (cache && Date.now() - cache.at < TIMING.feedRefreshMs) return;
 		let alive = true;
-		fetchRadarFrames()
-			.then((d) => {
-				cache = {data: d, at: Date.now()};
-				if (alive) { setData(d); setIndex(d.frames.length - 1); }
-			})
+		radarFrames()
+			.then((d) => { if (alive && (!data || d !== data)) setData(d); })
 			.catch(() => { if (alive && !cache) setFailed(true); });
 		return () => { alive = false; };
 	}, []);
@@ -48,20 +80,14 @@ export function RadarPane ({running, width, height, loops: turns, timeFormat, on
 	const atNewest = index === last;
 	useTimeout(running && !!data, atNewest ? TIMING.radarHoldMs : TIMING.radarFrameMs, () => {
 		if (!atNewest) { setIndex(index + 1); return; }
-		if (loops + 1 >= turns + 1) { onDone(); return; }   // +1: the opening hold
+		if (loops + 1 >= turns) { onDone(); return; }
 		setLoops(loops + 1);
 		setIndex(0);
 	}, `${index}:${loops}`);
 
 	if (!data) return <div class="pane pane--loading" />;
 
-	const viewW = width / MAP_SCALE;
-	const viewH = height / MAP_SCALE;
-	const center = worldPixel(PLACE.lat, PLACE.lon);
-	const x0 = center.x - viewW / 2;
-	const y0 = center.y - viewH / 2;
-	const radarTiles = tilesCovering(x0, y0, viewW, viewH, TILE_SIZE);
-	const mapTiles = tilesCovering(x0, y0, viewW, viewH, MAP_TILE_SIZE);
+	const {viewW, viewH, x0, y0, radarTiles, mapTiles} = radarView(width, height);
 	const frame = data.frames[index];
 
 	return (
