@@ -53,12 +53,13 @@ export const LAYOUT = {
 	screenHeight: 1080,
 	edgePadding: 140,       // heavy padding around the screen edges
 	headerTop: 84,          // settings screen title
-	// Home: the clock and the app grid on the left, the window on the right. The screen
-	// edge, the gap between grid and window, and the right edge are all about 120 px:
-	// 120 + grid 598 + 122 + window 960 + 120 = 1920.
+	// Home: the clock and the app grid on the left, the window on the right:
+	// 120 + grid 598 + 102 + window 1000 + 100 = 1920. The window's top is level with the
+	// top of the clock's digits and of the LG Home button (60), its bottom with the
+	// baseline of the third row's labels (1021), so both screen margins are about 60.
 	homeLeft: 120,
 	clockTop: 48,
-	rowsTop: 300,           // the app grid starts here, below the clock and the forecast
+	rowsTop: 324,           // the app grid starts here, clear of the forecast even when a tile is focused
 	tileSize: 144,          // the settings picker's tiles are square
 	tileGap: 28,
 	tileRadius: 24,
@@ -72,10 +73,10 @@ export const LAYOUT = {
 	appRowGap: 30,
 	appLabelHeight: 32,     // one line of label under an app tile
 	focusRoom: 24,          // margin kept around clipped areas so a focused tile isn't cut
-	windowLeft: 840,
-	windowTop: 100,
-	windowWidth: 960,
-	windowHeight: 880,
+	windowLeft: 820,
+	windowTop: 60,
+	windowWidth: 1000,
+	windowHeight: 961,
 	windowRadius: 36
 } as const;
 
