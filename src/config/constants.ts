@@ -28,6 +28,9 @@ export const LUNA = {
 	tvApps: 'luna://io.github.dionlima1.launcher.album/apps',
 	/** aircraft near a point, from adsb.lol via our service */
 	planes: 'luna://io.github.dionlima1.launcher.album/planes',
+	/** once per power-on: starts the Home button helper (lib/boot.ts) */
+	albumBoot: 'luna://io.github.dionlima1.launcher.album/boot',
+	activityCreate: 'luna://com.palm.activitymanager/create',
 	/** subscription: the TV asks before starting LG's screensaver (lib/screensaver.ts) */
 	screenSaverRequest: 'luna://com.webos.service.tvpower/power/registerScreenSaverRequest',
 	screenSaverResponse: 'luna://com.webos.service.tvpower/power/responseScreenSaverRequest'

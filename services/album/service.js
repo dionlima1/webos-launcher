@@ -7,10 +7,12 @@
 //  - prepareVideo: downloads an album video so the TV can play it (video.js);
 //    subscribe for progress, the last answer has `src`;
 //  - planes: aircraft near a point, from adsb.lol (planes.js);
-//  - apps: the installed apps with LG's own icons, over SSAP (apps.js).
+//  - apps: the installed apps with LG's own icons, over SSAP (apps.js);
+//  - boot: after the TV powers on, starts the Home button helper again (see below).
 
 'use strict';
 
+var fs = require('fs');
 var Service = require('webos-service');
 var pkgInfo = require('./package.json');
 var album = require('./album');
@@ -79,5 +81,38 @@ service.register('apps', function (message) {
 	apps.listApps(key, function (error, result) {
 		if (error) message.respond({returnValue: false, errorText: String(error.message || error)});
 		else message.respond({returnValue: true, key: result.key, apps: result.apps});
+	});
+});
+
+// The Home button helper (com.local.nativehome, home-helper/) stops when the TV is
+// switched off, and its own boot service never answers on this TV, so nothing started
+// it again. A persistent activity (created by the app, src/lib/boot.ts) calls `boot`
+// every minute, and the app calls it once at start: once per power-on it launches the
+// helper, which then opens Início and takes the Home button back. Every other call only
+// finds the marker in /tmp, which the TV empties at each power-on.
+var HELPER_ID = 'com.local.nativehome';
+var BOOT_MARK = '/tmp/io.github.dionlima1.launcher.booted';
+var BOOT_LAST = '/tmp/io.github.dionlima1.launcher.boot-last.json';   // the last call, for checking it runs
+
+service.register('boot', function (message) {
+	var payload = message.payload || {};
+	var finish = function (result) {
+		result.returnValue = true;
+		try { fs.writeFileSync(BOOT_LAST, JSON.stringify({time: Date.now(), activity: !!payload.$activity, started: result.started})); } catch (e) { /* only a debugging aid */ }
+		if (payload.$activity && message.activity) {
+			service.activityManager.complete(message.activity, {restart: true}, function () { message.respond(result); });
+		} else {
+			message.respond(result);
+		}
+	};
+	if (fs.existsSync(BOOT_MARK)) { finish({started: false}); return; }
+	service.call('luna://com.webos.applicationManager/launch', {id: HELPER_ID, params: {nativeHomeAuto: true}}, function (reply) {
+		var ok = !!(reply.payload && reply.payload.returnValue);
+		// Only a launch that worked counts: early in the boot the app manager may not
+		// be ready yet, and the next call tries again.
+		if (ok) {
+			try { fs.writeFileSync(BOOT_MARK, String(Date.now())); } catch (e) { /* tried again next call */ }
+		}
+		finish({started: ok, launch: reply.payload});
 	});
 });

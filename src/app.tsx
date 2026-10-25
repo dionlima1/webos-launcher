@@ -11,6 +11,7 @@ import {listInputs, MOCK_INPUTS, type InputSource} from './lib/inputs';
 import {launchApp, launchLgHome} from './lib/launch';
 import {isWebOS} from './lib/luna';
 import {hidePointerOnForeground} from './lib/pointer';
+import {armPowerOn, type BootReport} from './lib/boot';
 import {loadConfig, saveConfig, SAVER_CHOICES, toggleId, type SaverConfig, type UserConfig} from './lib/storage';
 import {MODES, MODE_LABEL} from './lib/windowState';
 import {appTile, inputTile, pickInOrder} from './lib/tiles';
@@ -65,6 +66,11 @@ export function App () {
 	// Start in remote (5-way) mode: hide the Magic Remote pointer whenever we come to the
 	// front. Shaking the remote still brings it back.
 	useEffect(() => hidePointerOnForeground(), []);
+
+	// The Home button helper after a power-on (lib/boot.ts).
+	useEffect(() => {
+		armPowerOn().then((report) => { (window as unknown as {__bootReport: BootReport}).__bootReport = report; });
+	}, []);
 
 	// Load apps at start and whenever the TV-list option changes. The TV's own list (with
 	// LG's icons) needs its permission once: without it the TV shows a prompt, so we say
